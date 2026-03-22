@@ -13,29 +13,19 @@
     {
       devShells.${system}.default = pkgs.mkShell {
         buildInputs = with pkgs; [
-          # Verilator - 高性能开源仿真器
           verilator
-          
-          # Python (Verilator 需要)
           python3
-          
-          # 波形查看器
-          gtkwave
-          
-          # SystemVerilog 语法检查和格式化
-          verible       # Google 的 SystemVerilog 工具套件
-          
-          # 构建工具
+          verible
           gnumake
           gcc
-          
-          # C++ 标准库 (Verilator 生成的 C++ 代码需要)
+          rustc
+          cargo
           stdenv.cc.cc.lib
         ];
-        
+
         shellHook = ''
-          echo "⚡ SystemVerilog development environment"
-          echo "Tools: verilator, gtkwave, verible"
+          echo "⚡ SystemVerilog + Rust binder development environment"
+          echo "Tools: verilator, cargo, rustc, verible"
           echo "Run: make help"
         '';
       };
