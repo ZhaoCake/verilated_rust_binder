@@ -4,8 +4,8 @@ module adder_top (
     output logic [8:0] sum
 );
 
-    always_comb begin
-        sum = a + b;
-    end
+  always_comb begin
+    sum = a + b;
+  end
 
 endmodule

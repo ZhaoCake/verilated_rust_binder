@@ -8,22 +8,22 @@ module toggle_pair_top (
     output logic both_high
 );
 
-    toggle_cell u_toggle_a (
-        .clk(clk),
-        .rst_n(rst_n),
-        .toggle_en(en_a),
-        .state(state_a)
-    );
+  toggle_cell u_toggle_a (
+      .clk(clk),
+      .rst_n(rst_n),
+      .toggle_en(en_a),
+      .state(state_a)
+  );
 
-    toggle_cell u_toggle_b (
-        .clk(clk),
-        .rst_n(rst_n),
-        .toggle_en(en_b),
-        .state(state_b)
-    );
+  toggle_cell u_toggle_b (
+      .clk(clk),
+      .rst_n(rst_n),
+      .toggle_en(en_b),
+      .state(state_b)
+  );
 
-    always_comb begin
-        both_high = state_a & state_b;
-    end
+  always_comb begin
+    both_high = state_a & state_b;
+  end
 
 endmodule
