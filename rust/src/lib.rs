@@ -1,3 +1,3 @@
-include!(concat!(env!("OUT_DIR"), "/bindings_manifest.rs"));
+pub mod dpi;
 
-pub use top::SimModel;
+include!(concat!(env!("OUT_DIR"), "/bindings_manifest.rs"));
