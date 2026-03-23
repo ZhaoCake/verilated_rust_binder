@@ -54,7 +54,13 @@ def rust_mask(width: int) -> str:
     return hex((1 << width) - 1)
 
 
+def symbol_prefix(top: str) -> str:
+    sanitized = re.sub(r"[^A-Za-z0-9_]", "_", top)
+    return f"vrb_{sanitized}"
+
+
 def render_cpp(top: str, ports: list[Port]) -> str:
+    prefix = symbol_prefix(top)
     lines = [
         "#include <cstdint>",
         f"#include \"V{top}.h\"",
@@ -63,19 +69,19 @@ def render_cpp(top: str, ports: list[Port]) -> str:
         'extern "C" {',
         f"using Model = V{top};",
         "",
-        "Model* vrb_new() {",
+        f"Model* {prefix}_new() {{",
         "    return new Model;",
         "}",
         "",
-        "void vrb_delete(Model* model) {",
+        f"void {prefix}_delete(Model* model) {{",
         "    delete model;",
         "}",
         "",
-        "void vrb_eval(Model* model) {",
+        f"void {prefix}_eval(Model* model) {{",
         "    model->eval();",
         "}",
         "",
-        "void vrb_final(Model* model) {",
+        f"void {prefix}_final(Model* model) {{",
         "    model->final();",
         "}",
         "",
@@ -85,7 +91,7 @@ def render_cpp(top: str, ports: list[Port]) -> str:
         if port.direction in {"in", "inout"}:
             lines.extend(
                 [
-                    f"void vrb_set_{port.name}(Model* model, uint64_t value) {{",
+                    f"void {prefix}_set_{port.name}(Model* model, uint64_t value) {{",
                     f"    model->{port.name} = value;",
                     "}",
                     "",
@@ -94,7 +100,7 @@ def render_cpp(top: str, ports: list[Port]) -> str:
 
         lines.extend(
             [
-                f"uint64_t vrb_get_{port.name}(const Model* model) {{",
+                f"uint64_t {prefix}_get_{port.name}(const Model* model) {{",
                 f"    return static_cast<uint64_t>(model->{port.name});",
                 "}",
                 "",
@@ -106,7 +112,8 @@ def render_cpp(top: str, ports: list[Port]) -> str:
     return "\n".join(lines)
 
 
-def render_rust(ports: list[Port]) -> str:
+def render_rust(top: str, ports: list[Port]) -> str:
+    prefix = symbol_prefix(top)
     lines = [
         "use std::ffi::c_void;",
         "",
@@ -114,16 +121,16 @@ def render_rust(ports: list[Port]) -> str:
         "type vrb_model_t = c_void;",
         "",
         'unsafe extern "C" {',
-        "    fn vrb_new() -> *mut vrb_model_t;",
-        "    fn vrb_delete(model: *mut vrb_model_t);",
-        "    fn vrb_eval(model: *mut vrb_model_t);",
-        "    fn vrb_final(model: *mut vrb_model_t);",
+        f"    fn {prefix}_new() -> *mut vrb_model_t;",
+        f"    fn {prefix}_delete(model: *mut vrb_model_t);",
+        f"    fn {prefix}_eval(model: *mut vrb_model_t);",
+        f"    fn {prefix}_final(model: *mut vrb_model_t);",
     ]
 
     for port in ports:
         if port.direction in {"in", "inout"}:
-            lines.append(f"    fn vrb_set_{port.name}(model: *mut vrb_model_t, value: u64);")
-        lines.append(f"    fn vrb_get_{port.name}(model: *const vrb_model_t) -> u64;")
+            lines.append(f"    fn {prefix}_set_{port.name}(model: *mut vrb_model_t, value: u64);")
+        lines.append(f"    fn {prefix}_get_{port.name}(model: *const vrb_model_t) -> u64;")
 
     lines.extend(
         [
@@ -135,13 +142,13 @@ def render_rust(ports: list[Port]) -> str:
             "",
             "impl SimModel {",
             "    pub fn new() -> Self {",
-            "        let raw = unsafe { vrb_new() };",
+            f"        let raw = unsafe {{ {prefix}_new() }};",
             "        assert!(!raw.is_null(), \"verilator model allocation failed\");",
             "        Self { raw }",
             "    }",
             "",
             "    pub fn eval(&mut self) {",
-            "        unsafe { vrb_eval(self.raw) };",
+            f"        unsafe {{ {prefix}_eval(self.raw) }};",
             "    }",
             "",
             "    pub fn port_width(name: &str) -> Option<u32> {",
@@ -168,7 +175,7 @@ def render_rust(ports: list[Port]) -> str:
                 [
                     f"    pub fn set_{port.name}(&mut self, value: u64) {{",
                     f"        let value = value & {mask};",
-                    f"        unsafe {{ vrb_set_{port.name}(self.raw, value) }};",
+                    f"        unsafe {{ {prefix}_set_{port.name}(self.raw, value) }};",
                     "    }",
                     "",
                 ]
@@ -177,7 +184,7 @@ def render_rust(ports: list[Port]) -> str:
         lines.extend(
             [
                 f"    pub fn {port.name}(&self) -> u64 {{",
-                f"        unsafe {{ vrb_get_{port.name}(self.raw) }}",
+                f"        unsafe {{ {prefix}_get_{port.name}(self.raw) }}",
                 "    }",
                 "",
             ]
@@ -194,8 +201,8 @@ def render_rust(ports: list[Port]) -> str:
             "        }",
             "",
             "        unsafe {",
-            "            vrb_final(self.raw);",
-            "            vrb_delete(self.raw);",
+            f"            {prefix}_final(self.raw);",
+            f"            {prefix}_delete(self.raw);",
             "        }",
             "        self.raw = std::ptr::null_mut();",
             "    }",
@@ -226,7 +233,7 @@ def main() -> int:
     args.out_cpp.parent.mkdir(parents=True, exist_ok=True)
     args.out_rs.parent.mkdir(parents=True, exist_ok=True)
     args.out_cpp.write_text(render_cpp(args.top, ports), encoding="utf-8")
-    args.out_rs.write_text(render_rust(ports), encoding="utf-8")
+    args.out_rs.write_text(render_rust(args.top, ports), encoding="utf-8")
 
     print(
         f"[gen_verilator_binder] generated {len(ports)} ports: "

@@ -14,8 +14,7 @@ fn main() {
     let top = env::var("VERILATOR_TOP").unwrap_or_else(|_| "top".to_string());
 
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("missing OUT_DIR"));
-    let verilator_dir = out_dir.join("verilator_obj_dir");
-    fs::create_dir_all(&verilator_dir).expect("failed to create verilator output dir");
+    let multi_top_raw = env::var("VERILATOR_TOPS").ok();
 
     let rtl_sources = collect_rtl_sources(&rtl_dir);
     if rtl_sources.is_empty() {
@@ -23,40 +22,96 @@ fn main() {
     }
 
     println!("cargo:rerun-if-env-changed=VERILATOR_TOP");
+    println!("cargo:rerun-if-env-changed=VERILATOR_TOPS");
     println!("cargo:rerun-if-env-changed=VERILATOR_ROOT");
     println!("cargo:rerun-if-changed={}", generator.display());
     for source in &rtl_sources {
         println!("cargo:rerun-if-changed={}", source.display());
     }
 
-    run_verilator(&top, &rtl_sources, &rtl_dir, &verilator_dir);
-
-    let header = verilator_dir.join(format!("V{top}.h"));
-    let bridge_cpp = out_dir.join("verilator_rust_bridge.cpp");
-    let generated_rs = out_dir.join("binder.rs");
-    run_generator(&generator, &header, &top, &bridge_cpp, &generated_rs);
-
-    run_make(&top, &verilator_dir);
-
     let verilator_root = detect_verilator_root();
     let verilator_include = verilator_root.join("include");
     let verilator_vltstd = verilator_root.join("include/vltstd");
 
-    cc::Build::new()
-        .cpp(true)
-        .warnings(false)
-        .flag_if_supported("-std=c++17")
-        .file(&bridge_cpp)
-        .file(verilator_include.join("verilated.cpp"))
-        .file(verilator_include.join("verilated_threads.cpp"))
-        .include(&verilator_dir)
-        .include(verilator_include)
-        .include(verilator_vltstd)
-        .compile("vrb_bridge");
+    let tops = collect_requested_tops(&top, multi_top_raw.as_deref());
+    let generated_rs_dir = out_dir.join("generated_binders");
+    fs::create_dir_all(&generated_rs_dir).expect("failed to create generated binder dir");
 
-    println!("cargo:rustc-link-search=native={}", verilator_dir.display());
-    println!("cargo:rustc-link-lib=static=V{top}__ALL");
+    let mut module_names = Vec::new();
+
+    for top in tops {
+        let sanitized = sanitize_top_name(&top);
+        let verilator_dir = out_dir.join(format!("verilator_obj_dir_{sanitized}"));
+        fs::create_dir_all(&verilator_dir).expect("failed to create verilator output dir");
+
+        run_verilator(&top, &rtl_sources, &rtl_dir, &verilator_dir);
+
+        let header = verilator_dir.join(format!("V{top}.h"));
+        let bridge_cpp = out_dir.join(format!("verilator_rust_bridge_{sanitized}.cpp"));
+        let generated_rs = generated_rs_dir.join(format!("{sanitized}.rs"));
+        run_generator(&generator, &header, &top, &bridge_cpp, &generated_rs);
+
+        run_make(&top, &verilator_dir);
+
+        let bridge_lib_name = format!("vrb_bridge_{sanitized}");
+        cc::Build::new()
+            .cpp(true)
+            .warnings(false)
+            .flag_if_supported("-std=c++17")
+            .file(&bridge_cpp)
+            .file(verilator_include.join("verilated.cpp"))
+            .file(verilator_include.join("verilated_threads.cpp"))
+            .include(&verilator_dir)
+            .include(&verilator_include)
+            .include(&verilator_vltstd)
+            .compile(&bridge_lib_name);
+
+        println!("cargo:rustc-link-search=native={}", verilator_dir.display());
+        println!("cargo:rustc-link-lib=static=V{top}__ALL");
+
+        module_names.push(sanitized);
+    }
+
+    let bindings_manifest = out_dir.join("bindings_manifest.rs");
+    fs::write(&bindings_manifest, render_bindings_manifest(&module_names))
+        .expect("failed to write bindings manifest");
+
     println!("cargo:rustc-link-lib=stdc++");
+}
+
+fn collect_requested_tops(default_top: &str, multi_top_raw: Option<&str>) -> Vec<String> {
+    let mut tops = Vec::new();
+
+    if let Some(raw) = multi_top_raw {
+        for item in raw.split(',') {
+            let trimmed = item.trim();
+            if !trimmed.is_empty() && !tops.iter().any(|top| top == trimmed) {
+                tops.push(trimmed.to_string());
+            }
+        }
+    }
+
+    if tops.is_empty() {
+        tops.push(default_top.to_string());
+    }
+
+    tops
+}
+
+fn sanitize_top_name(top: &str) -> String {
+    top.chars()
+        .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '_' })
+        .collect()
+}
+
+fn render_bindings_manifest(module_names: &[String]) -> String {
+    let mut body = String::new();
+    for name in module_names {
+        body.push_str(&format!("pub mod {name} {{\n"));
+        body.push_str(&format!("    include!(concat!(env!(\"OUT_DIR\"), \"/generated_binders/{name}.rs\"));\n"));
+        body.push_str("}\n\n");
+    }
+    body
 }
 
 fn collect_rtl_sources(rtl_dir: &Path) -> Vec<PathBuf> {

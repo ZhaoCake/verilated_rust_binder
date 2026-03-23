@@ -17,6 +17,12 @@ make sim
 
 # 第二个 RTL 示例：adder
 make sim-adder
+
+# 新增时序模块示例
+make sim-pulse-counter
+
+# 使用 Rust 原生 test 框架验证
+make rust-test TOP_MODULES=top,adder_top,pulse_counter_top
 ```
 
 ## Project Structure
@@ -28,20 +34,24 @@ make sim-adder
 ├── rtl/
 │   ├── top.sv                          # counter RTL (top)
 │   └── adder_top.sv                    # adder RTL (adder_top)
+│   └── pulse_counter_top.sv            # pulse 触发计数器
 ├── scripts/
 │   └── gen_verilator_binder.py         # 解析 V<top>.h 并生成绑定
 └── rust/
     ├── Cargo.toml
     ├── build.rs                        # 执行 verilator + 生成绑定 + 链接
-    ├── src/lib.rs                      # include!(OUT_DIR/binder.rs)
+    ├── src/lib.rs                      # include!(OUT_DIR/bindings_manifest.rs)
     └── examples/
         ├── counter.rs                  # 驱动 top.sv
         └── adder.rs                    # 驱动 adder_top.sv
+        └── pulse_counter.rs            # 驱动 pulse_counter_top.sv
+    └── tests/
+        └── pulse_counter_test.rs       # Rust 原生集成测试
 ```
 
 ## Binder Workflow
 
-执行 `cargo run` / `make rust-sim` 会自动执行：
+执行 `cargo run` / `make rust-sim` / `cargo test` 会自动执行：
 
 1. `build.rs` 调用 `verilator --cc --top-module <TOP>` 生成 `V<TOP>.h/.cpp`
 2. `scripts/gen_verilator_binder.py` 解析端口并生成：
@@ -56,9 +66,34 @@ make sim-adder
 make sim                            # 等价 make sim-counter
 make sim-counter                    # TOP=top + example=counter
 make sim-adder                      # TOP=adder_top + example=adder
+make sim-pulse-counter              # TOP=pulse_counter_top + example=pulse_counter
 make rust-sim TOP_MODULE=top RUST_EXAMPLE=counter
 make rust-check TOP_MODULE=adder_top
+make rust-test TOP_MODULES=top,adder_top,pulse_counter_top
 ```
+
+## Rust 原生测试
+
+现在仓库已经支持把多个 top 一次性生成绑定，然后直接走 Rust 自带测试框架：
+
+- 测试文件位置：`rust/tests/*.rs`
+- 运行方式：`cargo test` 或 `make rust-test`
+- 适合做断言式验证，而不是只打印波形/日志
+
+例如当前新增了：
+
+- `rtl/pulse_counter_top.sv`
+- `rust/tests/pulse_counter_test.rs`
+
+这也是本仓库使用 Rust 封装 Verilated 模型的核心价值之一：
+
+- 直接复用 Rust 的 `#[test]`
+- 使用 `assert_eq!` 等断言
+- 易于集成到 CI
+
+## Docs
+
+- [项目现状与扩展指南](docs/%E9%A1%B9%E7%9B%AE%E7%8E%B0%E7%8A%B6%E4%B8%8E%E6%89%A9%E5%B1%95%E6%8C%87%E5%8D%97.md)
 
 ## Limitations
 
