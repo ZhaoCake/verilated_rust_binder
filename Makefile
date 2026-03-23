@@ -1,5 +1,5 @@
 # SystemVerilog + Verilator + Rust Binder Makefile
-.PHONY: all sim sim-counter sim-adder sim-pulse-counter rust-sim rust-check rust-test lint format clean help
+.PHONY: all sim sim-counter sim-adder sim-pulse-counter sim-toggle-pair rust-sim rust-check rust-test lint format clean help
 
 TOP_MODULE ?= top
 RUST_EXAMPLE ?= counter
@@ -24,6 +24,10 @@ sim-pulse-counter: TOP_MODULE = pulse_counter_top
 sim-pulse-counter: RUST_EXAMPLE = pulse_counter
 sim-pulse-counter: rust-sim
 
+sim-toggle-pair: TOP_MODULE = toggle_pair_top
+sim-toggle-pair: RUST_EXAMPLE = toggle_pair
+sim-toggle-pair: rust-sim
+
 rust-sim: $(VSRCS)
 	@echo "🦀 Running Rust simulation (TOP=$(TOP_MODULE), EXAMPLE=$(RUST_EXAMPLE))..."
 	@VERILATOR_TOP=$(TOP_MODULE) cargo run --manifest-path $(RUST_DIR)/Cargo.toml --example $(RUST_EXAMPLE)
@@ -34,7 +38,7 @@ rust-check: $(VSRCS)
 
 rust-test: $(VSRCS)
 	@echo "🦀 Running Rust tests (TOPS=$(TOP_MODULES))..."
-	@VERILATOR_TOPS="$(TOP_MODULES)" cargo test --manifest-path $(RUST_DIR)/Cargo.toml --test pulse_counter_test -- --nocapture
+	@VERILATOR_TOPS="$(TOP_MODULES)" cargo test --manifest-path $(RUST_DIR)/Cargo.toml --test pulse_counter_test --test toggle_pair_test -- --nocapture
 
 lint:
 	@echo "🔍 Running Verible linter..."
@@ -56,9 +60,10 @@ help:
 	@echo "  make sim-counter    - Run counter RTL with Rust"
 	@echo "  make sim-adder      - Run adder RTL with Rust"
 	@echo "  make sim-pulse-counter - Run pulse_counter RTL with Rust"
+	@echo "  make sim-toggle-pair - Run nested-module toggle_pair RTL with Rust"
 	@echo "  make rust-sim       - Run Rust simulation with TOP_MODULE/RUST_EXAMPLE"
 	@echo "  make rust-check     - Type-check Rust binder crate"
-	@echo "  make rust-test TOP_MODULES=top,adder_top,pulse_counter_top - Run Rust integration tests"
+	@echo "  make rust-test TOP_MODULES=top,adder_top,pulse_counter_top,toggle_pair_top - Run Rust integration tests"
 	@echo "  make lint           - Run Verible linter"
 	@echo "  make format         - Format SystemVerilog with Verible"
 	@echo "  make clean          - Remove build artifacts"
@@ -66,4 +71,4 @@ help:
 	@echo "Examples:"
 	@echo "  make rust-sim TOP_MODULE=adder_top RUST_EXAMPLE=adder"
 	@echo "  make rust-check TOP_MODULE=top"
-	@echo "  make rust-test TOP_MODULES=top,adder_top,pulse_counter_top"
+	@echo "  make rust-test TOP_MODULES=top,adder_top,pulse_counter_top,toggle_pair_top"

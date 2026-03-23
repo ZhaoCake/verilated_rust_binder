@@ -21,8 +21,11 @@ make sim-adder
 # 新增时序模块示例
 make sim-pulse-counter
 
+# 嵌套模块示例
+make sim-toggle-pair
+
 # 使用 Rust 原生 test 框架验证
-make rust-test TOP_MODULES=top,adder_top,pulse_counter_top
+make rust-test TOP_MODULES=top,adder_top,pulse_counter_top,toggle_pair_top
 ```
 
 ## Project Structure
@@ -33,8 +36,10 @@ make rust-test TOP_MODULES=top,adder_top,pulse_counter_top
 ├── Makefile
 ├── rtl/
 │   ├── top.sv                          # counter RTL (top)
-│   └── adder_top.sv                    # adder RTL (adder_top)
-│   └── pulse_counter_top.sv            # pulse 触发计数器
+│   ├── adder_top.sv                    # adder RTL (adder_top)
+│   ├── pulse_counter_top.sv            # pulse 触发计数器
+│   ├── toggle_cell.sv                  # 嵌套测试用子模块
+│   └── toggle_pair_top.sv              # 顶层实例化两个 toggle_cell
 ├── scripts/
 │   └── gen_verilator_binder.py         # 解析 V<top>.h 并生成绑定
 └── rust/
@@ -43,10 +48,12 @@ make rust-test TOP_MODULES=top,adder_top,pulse_counter_top
     ├── src/lib.rs                      # include!(OUT_DIR/bindings_manifest.rs)
     └── examples/
         ├── counter.rs                  # 驱动 top.sv
-        └── adder.rs                    # 驱动 adder_top.sv
+        ├── adder.rs                    # 驱动 adder_top.sv
         └── pulse_counter.rs            # 驱动 pulse_counter_top.sv
+        └── toggle_pair.rs              # 驱动 toggle_pair_top.sv
     └── tests/
         └── pulse_counter_test.rs       # Rust 原生集成测试
+        └── toggle_pair_test.rs         # 嵌套模块集成测试
 ```
 
 ## Binder Workflow
@@ -67,9 +74,10 @@ make sim                            # 等价 make sim-counter
 make sim-counter                    # TOP=top + example=counter
 make sim-adder                      # TOP=adder_top + example=adder
 make sim-pulse-counter              # TOP=pulse_counter_top + example=pulse_counter
+make sim-toggle-pair                # TOP=toggle_pair_top + example=toggle_pair
 make rust-sim TOP_MODULE=top RUST_EXAMPLE=counter
 make rust-check TOP_MODULE=adder_top
-make rust-test TOP_MODULES=top,adder_top,pulse_counter_top
+make rust-test TOP_MODULES=top,adder_top,pulse_counter_top,toggle_pair_top
 ```
 
 ## Rust 原生测试
@@ -84,6 +92,9 @@ make rust-test TOP_MODULES=top,adder_top,pulse_counter_top
 
 - `rtl/pulse_counter_top.sv`
 - `rust/tests/pulse_counter_test.rs`
+- `rtl/toggle_cell.sv`
+- `rtl/toggle_pair_top.sv`
+- `rust/tests/toggle_pair_test.rs`
 
 这也是本仓库使用 Rust 封装 Verilated 模型的核心价值之一：
 

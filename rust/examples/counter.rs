@@ -1,4 +1,4 @@
-use verilated_rust_binder::SimModel;
+use verilated_rust_binder::top::SimModel;
 
 fn main() {
     let mut dut = SimModel::new();
