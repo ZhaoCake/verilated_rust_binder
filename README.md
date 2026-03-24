@@ -24,6 +24,9 @@ make sim-pulse-counter
 # Nested module example
 make sim-toggle-pair
 
+# Export waveform for toggle_pair_top
+make sim-toggle-pair
+
 # DPI-C import example
 make sim-dpi-adder
 
@@ -35,6 +38,9 @@ make rust-test TOP_MODULES=dpi_adder_top RUST_TEST=dpi_adder_test
 
 # Run one test function only
 make rust-test TOP_MODULES=toggle_pair_top RUST_TEST=toggle_pair_test RUST_TEST_FILTER=nested_modules_toggle_independently
+
+# Run waveform export test only
+make rust-test TOP_MODULES=toggle_pair_top RUST_TEST=toggle_pair_wave_test
 ```
 
 ## Project Structure
@@ -50,7 +56,7 @@ make rust-test TOP_MODULES=toggle_pair_top RUST_TEST=toggle_pair_test RUST_TEST_
 │   ├── adder_top.sv                    # adder RTL (adder_top)
 │   ├── pulse_counter_top.sv            # pulse-triggered counter
 │   ├── toggle_cell.sv                  # nested-test submodule
-│   └── toggle_pair_top.sv              # top level instantiating two toggle_cells
+│   ├── toggle_pair_top.sv              # top level instantiating two toggle_cells
 │   └── dpi_adder_top.sv                # calls Rust function via DPI-C import
 ├── scripts/
 │   └── gen_verilator_binder.py         # parses V<top>.h and generates bindings
@@ -68,6 +74,7 @@ make rust-test TOP_MODULES=toggle_pair_top RUST_TEST=toggle_pair_test RUST_TEST_
     └── tests/
         ├── pulse_counter_test.rs       # Rust native integration test
         ├── toggle_pair_test.rs         # nested-module integration test
+        ├── toggle_pair_wave_test.rs    # waveform export integration test
         └── dpi_adder_test.rs           # DPI import integration test
 ```
 
@@ -96,6 +103,7 @@ make rust-check TOP_MODULE=adder_top
 make rust-test TOP_MODULES=top,adder_top,pulse_counter_top,toggle_pair_top,dpi_adder_top
 make rust-test TOP_MODULES=dpi_adder_top RUST_TEST=dpi_adder_test
 make rust-test TOP_MODULES=toggle_pair_top RUST_TEST=toggle_pair_test RUST_TEST_FILTER=nested_modules_toggle_independently
+make rust-test TOP_MODULES=toggle_pair_top RUST_TEST=toggle_pair_wave_test
 ```
 
 ## Rust Native Testing
@@ -111,6 +119,7 @@ Common usage:
 - Run all tests: `make rust-test`
 - Run one test file: `make rust-test TOP_MODULES=dpi_adder_top RUST_TEST=dpi_adder_test`
 - Run one test function: `make rust-test TOP_MODULES=toggle_pair_top RUST_TEST=toggle_pair_test RUST_TEST_FILTER=nested_modules_toggle_independently`
+- Run waveform export test: `make rust-test TOP_MODULES=toggle_pair_top RUST_TEST=toggle_pair_wave_test`
 
 Recent additions:
 
@@ -119,9 +128,41 @@ Recent additions:
 - `rtl/toggle_cell.sv`
 - `rtl/toggle_pair_top.sv`
 - `rust/tests/toggle_pair_test.rs`
+- `rust/tests/toggle_pair_wave_test.rs`
 - `rtl/dpi_adder_top.sv`
 - `rust/src/dpi.rs`
 - `rust/tests/dpi_adder_test.rs`
+
+## Waveform Export Support
+
+The repository now supports VCD waveform export through the generated Rust wrapper.
+
+Available API on each generated `SimModel`:
+
+- `enable_vcd(path, levels)`
+- `dump_vcd(time)`
+- `flush_vcd()`
+- `close_vcd()`
+
+Current verified example:
+
+- `rust/examples/toggle_pair.rs`
+- output file: `wave_toggle_pair.vcd`
+
+Current verified test:
+
+- `rust/tests/toggle_pair_wave_test.rs`
+
+Typical usage pattern:
+
+1. call `enable_vcd(...)`
+2. after each `eval()`, call `dump_vcd(sim_time)`
+3. call `flush_vcd()` / `close_vcd()` before exit
+
+Note:
+
+- waveform export is currently validated on `toggle_pair_top`
+- the dedicated waveform test is kept in a separate test file to avoid native trace teardown conflicts inside the same test binary
 
 ## DPI-C Support Status
 

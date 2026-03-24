@@ -45,7 +45,7 @@ rust-check: $(VSRCS)
 
 rust-test: $(VSRCS)
 	@echo "🦀 Running Rust tests (TOPS=$(TOP_MODULES), TEST=$(RUST_TEST), FILTER=$(RUST_TEST_FILTER))..."
-	@VERILATOR_TOPS="$(TOP_MODULES)" cargo test --manifest-path $(RUST_DIR)/Cargo.toml $(if $(RUST_TEST),--test $(RUST_TEST),) $(RUST_TEST_FILTER) -- --nocapture
+	@VERILATOR_TOPS="$(TOP_MODULES)" cargo test --manifest-path $(RUST_DIR)/Cargo.toml $(if $(RUST_TEST),--test $(RUST_TEST),) $(RUST_TEST_FILTER) -- --nocapture $(if $(findstring toggle_pair_top,$(TOP_MODULES)),--test-threads=1,)
 
 lint:
 	@echo "🔍 Running Verible linter..."
@@ -74,6 +74,7 @@ help:
 	@echo "  make rust-test TOP_MODULES=top,adder_top,pulse_counter_top,toggle_pair_top,dpi_adder_top - Run all Rust tests"
 	@echo "  make rust-test TOP_MODULES=dpi_adder_top RUST_TEST=dpi_adder_test - Run one test file"
 	@echo "  make rust-test TOP_MODULES=toggle_pair_top RUST_TEST=toggle_pair_test RUST_TEST_FILTER=nested_modules_toggle_independently - Run one test function"
+	@echo "  make rust-test TOP_MODULES=toggle_pair_top RUST_TEST=toggle_pair_wave_test - Run waveform export test"
 	@echo "  make lint           - Run Verible linter"
 	@echo "  make format         - Format SystemVerilog with Verible"
 	@echo "  make clean          - Remove build artifacts"
@@ -83,3 +84,4 @@ help:
 	@echo "  make rust-check TOP_MODULE=top"
 	@echo "  make rust-test TOP_MODULES=top,adder_top,pulse_counter_top,toggle_pair_top,dpi_adder_top"
 	@echo "  make rust-test TOP_MODULES=dpi_adder_top RUST_TEST=dpi_adder_test"
+	@echo "  make rust-test TOP_MODULES=toggle_pair_top RUST_TEST=toggle_pair_wave_test"

@@ -24,6 +24,9 @@ make sim-pulse-counter
 # 嵌套模块示例
 make sim-toggle-pair
 
+# 为 toggle_pair_top 导出波形
+make sim-toggle-pair
+
 # DPI-C import 示例
 make sim-dpi-adder
 
@@ -35,6 +38,9 @@ make rust-test TOP_MODULES=dpi_adder_top RUST_TEST=dpi_adder_test
 
 # 只运行某个测试函数
 make rust-test TOP_MODULES=toggle_pair_top RUST_TEST=toggle_pair_test RUST_TEST_FILTER=nested_modules_toggle_independently
+
+# 只运行波形导出测试
+make rust-test TOP_MODULES=toggle_pair_top RUST_TEST=toggle_pair_wave_test
 ```
 
 ## Project Structure
@@ -48,7 +54,7 @@ make rust-test TOP_MODULES=toggle_pair_top RUST_TEST=toggle_pair_test RUST_TEST_
 │   ├── adder_top.sv                    # adder RTL (adder_top)
 │   ├── pulse_counter_top.sv            # pulse 触发计数器
 │   ├── toggle_cell.sv                  # 嵌套测试用子模块
-│   └── toggle_pair_top.sv              # 顶层实例化两个 toggle_cell
+│   ├── toggle_pair_top.sv              # 顶层实例化两个 toggle_cell
 │   └── dpi_adder_top.sv                # 通过 DPI-C import 调 Rust 函数
 ├── scripts/
 │   └── gen_verilator_binder.py         # 解析 V<top>.h 并生成绑定
@@ -66,6 +72,7 @@ make rust-test TOP_MODULES=toggle_pair_top RUST_TEST=toggle_pair_test RUST_TEST_
     └── tests/
         ├── pulse_counter_test.rs       # Rust 原生集成测试
         ├── toggle_pair_test.rs         # 嵌套模块集成测试
+        ├── toggle_pair_wave_test.rs    # 波形导出集成测试
         └── dpi_adder_test.rs           # DPI import 集成测试
 ```
 
@@ -94,6 +101,7 @@ make rust-check TOP_MODULE=adder_top
 make rust-test TOP_MODULES=top,adder_top,pulse_counter_top,toggle_pair_top,dpi_adder_top
 make rust-test TOP_MODULES=dpi_adder_top RUST_TEST=dpi_adder_test
 make rust-test TOP_MODULES=toggle_pair_top RUST_TEST=toggle_pair_test RUST_TEST_FILTER=nested_modules_toggle_independently
+make rust-test TOP_MODULES=toggle_pair_top RUST_TEST=toggle_pair_wave_test
 ```
 
 ## Rust 原生测试
@@ -109,6 +117,7 @@ make rust-test TOP_MODULES=toggle_pair_top RUST_TEST=toggle_pair_test RUST_TEST_
 - 跑全部测试：`make rust-test`
 - 跑单个测试文件：`make rust-test TOP_MODULES=dpi_adder_top RUST_TEST=dpi_adder_test`
 - 跑单个测试函数：`make rust-test TOP_MODULES=toggle_pair_top RUST_TEST=toggle_pair_test RUST_TEST_FILTER=nested_modules_toggle_independently`
+- 跑波形导出测试：`make rust-test TOP_MODULES=toggle_pair_top RUST_TEST=toggle_pair_wave_test`
 
 例如当前新增了：
 
@@ -117,9 +126,41 @@ make rust-test TOP_MODULES=toggle_pair_top RUST_TEST=toggle_pair_test RUST_TEST_
 - `rtl/toggle_cell.sv`
 - `rtl/toggle_pair_top.sv`
 - `rust/tests/toggle_pair_test.rs`
+- `rust/tests/toggle_pair_wave_test.rs`
 - `rtl/dpi_adder_top.sv`
 - `rust/src/dpi.rs`
 - `rust/tests/dpi_adder_test.rs`
+
+## 波形导出支持现状
+
+当前仓库已经支持通过生成出来的 Rust 封装导出 VCD 波形。
+
+每个自动生成的 `SimModel` 当前可用接口：
+
+- `enable_vcd(path, levels)`
+- `dump_vcd(time)`
+- `flush_vcd()`
+- `close_vcd()`
+
+当前已验证示例：
+
+- `rust/examples/toggle_pair.rs`
+- 输出文件：`wave_toggle_pair.vcd`
+
+当前已验证测试：
+
+- `rust/tests/toggle_pair_wave_test.rs`
+
+推荐使用方式：
+
+1. 先调用 `enable_vcd(...)`
+2. 每次 `eval()` 后调用 `dump_vcd(sim_time)`
+3. 结束前调用 `flush_vcd()` / `close_vcd()`
+
+说明：
+
+- 当前首先在 `toggle_pair_top` 上完成了验证
+- 波形测试被单独拆成独立测试文件，以避免同一个 test binary 内部的原生 trace 清理冲突
 
 ## DPI-C 支持现状
 

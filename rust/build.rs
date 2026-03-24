@@ -61,6 +61,7 @@ fn main() {
             .file(&bridge_cpp)
             .file(verilator_include.join("verilated.cpp"))
             .file(verilator_include.join("verilated_threads.cpp"))
+            .file(verilator_include.join("verilated_vcd_c.cpp"))
             .include(&verilator_dir)
             .include(&verilator_include)
             .include(&verilator_vltstd)
@@ -136,6 +137,7 @@ fn run_verilator(top: &str, sources: &[PathBuf], rtl_dir: &Path, verilator_dir: 
     let mut command = Command::new("verilator");
     command
         .arg("--cc")
+        .arg("--trace")
         .arg("--Mdir")
         .arg(verilator_dir)
         .arg("--top-module")
