@@ -1,5 +1,11 @@
 # SystemVerilog + Verilator + Rust Binder Template
 
+now we have chisel development environment with verilated rust binder!
+
+[chisel_with_vrb](https://github.com/ZhaoCake/chisel_with_vrb)
+
+---
+
 This is a pure Rust-driven Verilator simulation template:
 
 `SV RTL -> Verilator generates C++ model -> Auto-generated C ABI + Rust wrapper -> Rust-driven simulation`
